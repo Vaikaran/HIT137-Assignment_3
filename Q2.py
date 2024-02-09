@@ -24,8 +24,11 @@ class Player(pygame.sprite.Sprite):
         self.jump_height = -15
         self.gravity = 1
         self.velocity = [0, 0]
-        self.health = 100
-        self.lives = 3
+        self.max_health = 100  # Maximum health
+        self.health = self.max_health
+        self.lives = 2  # Set initial lives to the desired value (e.g., 3)
+        self.hit = False  # Flag to track if player has been hit
+        self.score = 0
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -34,8 +37,8 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT]:
             self.velocity[0] = self.speed
 
-        if keys[pygame.K_SPACE] and self.rect.bottom == HEIGHT:
-            self.velocity[1] = self.jump_height
+        if keys[pygame.K_UP] and self.rect.bottom == HEIGHT:
+            self.jump()
 
         self.velocity[1] += self.gravity
 
@@ -49,6 +52,14 @@ class Player(pygame.sprite.Sprite):
         if self.rect.bottom > HEIGHT:
             self.rect.bottom = HEIGHT
             self.velocity[1] = 0
+
+    def jump(self):
+        self.velocity[1] = self.jump_height
+
+    def shoot(self):
+        projectile = Projectile(self.rect.centerx, self.rect.centery, "right")
+        projectiles.add(projectile)
+        all_sprites.add(projectile)
 
 # Projectile Class
 class Projectile(pygame.sprite.Sprite):
@@ -68,6 +79,22 @@ class Projectile(pygame.sprite.Sprite):
         elif self.direction == "right":
             self.rect.x += self.speed
 
+# HealthRefill Class
+class HealthRefill(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        # Load the health refill image
+        self.image = pygame.image.load("firstaid.png").convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = 3
+
+    def update(self):
+        self.rect.x -= self.speed
+
+        if self.rect.right < 0:
+            self.kill()  # Remove the health refill when it goes off-screen
+
 # Enemy Class
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -77,7 +104,6 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.speed = 3
-        self.health = 20
 
     def update(self):
         self.rect.x -= self.speed
@@ -85,26 +111,15 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill()  # Remove the enemy when it goes off-screen
 
-        if random.randint(0, 100) < 2:
-            collectible = Collectible(self.rect.centerx, self.rect.centery, "health")
-            collectibles.add(collectible)
-            all_sprites.add(collectible)
-
-# Collectible Class
-class Collectible(pygame.sprite.Sprite):
-    def __init__(self, x, y, type):
-        super().__init__()
-        self.image = pygame.Surface((30, 30))
-        self.image.fill((0, 255, 0))
-        self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
-        self.type = type
-
-    def update(self):
-        pass
+    def drop_health_refill(self):
+        if random.randint(0, 100) < 10:  # 10% chance to drop health refill
+            health_refill = HealthRefill(self.rect.centerx, self.rect.centery)
+            health_refills.add(health_refill)
+            all_sprites.add(health_refill)
 
 # Game Over Screen Function
 def game_over_screen():
+    global screen, all_sprites, projectiles, enemies, health_refills  # Declare global variables
     font = pygame.font.Font(None, 74)
     game_over_text = font.render("Game Over", True, (255, 0, 0))
     restart_text = font.render("Press R to Restart", True, (255, 255, 255))
@@ -123,29 +138,34 @@ def game_over_screen():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
                     waiting = False
+                    # Reset the game
+                    all_sprites = pygame.sprite.Group()
+                    projectiles = pygame.sprite.Group()
+                    enemies = pygame.sprite.Group()
+                    health_refills = pygame.sprite.Group()
+                    main()
 
 # Initialize groups globally
 all_sprites = pygame.sprite.Group()
 projectiles = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
-collectibles = pygame.sprite.Group()
+health_refills = pygame.sprite.Group()
 
 # Main game function
 def main():
-    global all_sprites, projectiles, enemies, collectibles  # Declare global variables
+    global screen, all_sprites, projectiles, enemies, health_refills  # Declare global variables
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("2D Side-Scrolling Game")
     clock = pygame.time.Clock()
 
+    font = pygame.font.Font(None, 36)  # Font initialization for displaying lives
+
     player = Player()
     all_sprites.add(player)
 
-    score = 0
     shooting_cooldown = 0
     max_cooldown = 30  # Adjust the cooldown value as needed
-
-    camera_offset = 0  # Initial camera offset
 
     running = True
     while running:
@@ -155,51 +175,79 @@ def main():
 
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_SPACE] and shooting_cooldown == 0:
-            projectile = Projectile(player.rect.centerx, player.rect.centery, "right")
-            projectiles.add(projectile)
-            all_sprites.add(projectile)
-            shooting_cooldown = max_cooldown
+        if keys[pygame.K_UP] and player.rect.bottom == HEIGHT:
+            player.jump()
+
+        if keys[pygame.K_l] and shooting_cooldown == 0:
+            player.shoot()
+            shooting_cooldown = max_cooldown  # Set cooldown when shooting
 
         if shooting_cooldown > 0:
             shooting_cooldown -= 1
 
         if random.randint(0, 100) < 2:
-            enemy = Enemy(WIDTH + camera_offset, HEIGHT - 50)
+            enemy = Enemy(WIDTH, HEIGHT - 50)
             enemies.add(enemy)
             all_sprites.add(enemy)
 
         all_sprites.update()
         projectiles.update()
         enemies.update()
-        collectibles.update()
+        health_refills.update()
 
-        pygame.sprite.groupcollide(projectiles, enemies, True, True)
+        # Check for collision between projectiles and enemies
+        collisions = pygame.sprite.groupcollide(projectiles, enemies, True, True)
 
-        for enemy in pygame.sprite.spritecollide(player, enemies, True):
-            score += 50  # Increase score when killing an enemy
-            collectible = Collectible(enemy.rect.centerx, enemy.rect.centery, "health")
-            collectibles.add(collectible)
-            all_sprites.add(collectible)
+        # Update score based on the number of enemies hit
+        for enemy_group in collisions.values():
+            for enemy in enemy_group:
+                player.score += 1
+                enemy.drop_health_refill()
 
-        collected_items = pygame.sprite.spritecollide(player, collectibles, True)
-        for item in collected_items:
-            if item.type == "health":
-                player.health += 20
-                if player.health > 100:
-                    player.health = 100
+        # Check for collision with health refills
+        health_collisions = pygame.sprite.spritecollide(player, health_refills, True)
+        for health_refill in health_collisions:
+            player.health = min(player.max_health, player.health + int(player.max_health * 0.1))
 
-        camera_offset = max(player.rect.centerx - WIDTH // 2, 0)
+        # Check for collision with enemies
+        for enemy in pygame.sprite.spritecollide(player, enemies, False):
+            if enemy.rect.right < 0 and not player.hit:
+                continue  # Skip enemies that have already been killed
+            if not player.hit:
+                player.hit = True  # Set hit flag to True
+                reduction_amount = int(player.max_health * 0.2)
+                player.health -= reduction_amount  # Decrease player health by 20%
+                player.health = max(0, player.health)  # Ensure health doesn't go below 0
+                enemy.kill()  # Remove the enemy when it makes the first contact
+                enemy.drop_health_refill()  # Drop health refill when enemy is killed
+
+        if not pygame.sprite.spritecollide(player, enemies, False):
+            player.hit = False  # Reset hit flag when no longer in contact with enemies
+
+        if player.health <= 0:
+            player.lives -= 1
+
+            if player.lives <= 0:
+                game_over_screen()
+                break
+
+            player.health = max(0, player.health)  # Ensure health doesn't go below 0
 
         screen.fill((0, 0, 0))
-        all_sprites.draw(screen)
 
+        # Draw the health bar
+        pygame.draw.rect(screen, (255, 0, 0), (10, 10, player.max_health * 2, 20))
         pygame.draw.rect(screen, (0, 255, 0), (10, 10, player.health * 2, 20))
-        pygame.draw.rect(screen, (255, 0, 0), (10, 10, 200, 20), 2)
 
-        font = pygame.font.Font(None, 36)
-        score_text = font.render(f"Score: {score}", True, (255, 255, 255))
-        screen.blit(score_text, (WIDTH - 150, 10))
+        # Draw the number of lives
+        lives_text = font.render(f"Lives: {max(0, player.lives)}", True, (255, 255, 255))
+        screen.blit(lives_text, (WIDTH - 150, 10))
+
+        # Draw the score
+        score_text = font.render(f"Score: {player.score}", True, (255, 255, 255))
+        screen.blit(score_text, (WIDTH - 150, 40))
+
+        all_sprites.draw(screen)
 
         pygame.display.flip()
         clock.tick(FPS)
