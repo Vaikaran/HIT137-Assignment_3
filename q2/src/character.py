@@ -334,6 +334,8 @@ class Player(Character):
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
         if self.invulnerableFrames == 0:
             self.health -= bullet.power
+            if self.health < 0:
+                self.health = 0
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
             if not Res.muted:
                 self.hitSound.play()
@@ -344,6 +346,8 @@ class Player(Character):
         if not (self.dying or self.isDead) and self.invulnerableFrames == 0:
             # -25% hp if hit with enemy
             self.health -= self.maxhealth * 0.25
+            if self.health < 0:
+                self.health = 0
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
             if not Res.muted:
                 self.hitSound.play()

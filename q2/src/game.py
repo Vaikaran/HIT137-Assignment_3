@@ -23,7 +23,7 @@ class Window:
         self.bg_img1 = pg.image.load(Res.get("image", "Mountains2.png"))
         self.bg_img2 = pg.image.load(Res.get("image", "Mountains3.png"))
         # scale to screen square size
-        self.bg_img = pg.transform.scale(self.bg_img1, (SCREEN_WIDTH, SCREEN_WIDTH))
+        self.bg_img = pg.transform.scale(self.bg_img2, (SCREEN_WIDTH, SCREEN_WIDTH))
         self.bg_index = 0
 
     def draw(self):
@@ -65,7 +65,7 @@ class Game:
         # game status: 0-main menu, 1-in game, 2-gameover
         self.gameStatus = 0
         # init sound/music
-        self.music = pg.mixer.music.load(Res.get("sound", "bg1.ogg"))
+        self.music = pg.mixer.music.load(Res.get("sound", "bg2.ogg"))
         pg.mixer.music.play(-1)
         pg.mixer.music.set_volume(0.5)
 
@@ -165,12 +165,25 @@ class Game:
             score,
             (SCREEN_WIDTH / 2 - score.get_width() / 2, 120 + title.get_height() + 40),
         )
-        hint = self.hintFont.render("Press R to restart", 1, Res.GREEN)
+        hint = self.hintFont.render("Press R to restart the game", 1, Res.GREEN)
         self.window.screen.blit(
             hint,
             (
                 SCREEN_WIDTH / 2 - hint.get_width() / 2,
                 120 + title.get_height() + 40 + score.get_height() + 20,
+            ),
+        )
+        self.window.screen.blit(
+            self.hintFont.render("Press ESC to return to the menu", 1, Res.GREEN),
+            (
+                SCREEN_WIDTH / 2 - hint.get_width() / 2,
+                120
+                + title.get_height()
+                + 40
+                + score.get_height()
+                + 20
+                + hint.get_height()
+                + 15,
             ),
         )
         pass

@@ -32,7 +32,7 @@ class Encounter:
                     "health": 120,
                     "shootCD": 300,
                     "pPower": 50,
-                    "point":60,
+                    "point": 60,
                 },
             ),
             Enemy(
@@ -51,7 +51,7 @@ class Encounter:
                     "pVelocity": 8,
                     "pPower": 20,
                     "shootCD": 120,
-                    "point":80,
+                    "point": 80,
                 },
             ),
             Enemy(
@@ -70,7 +70,7 @@ class Encounter:
                     "pVelocity": 8,
                     "pPower": 20,
                     "shootCD": 120,
-                    "point":80,
+                    "point": 80,
                 },
             ),
             Enemy(
@@ -88,7 +88,7 @@ class Encounter:
                     "pRadius": 6,
                     "pPower": 50,
                     "shootCD": 200,
-                    "point":80,
+                    "point": 80,
                 },
             ),
             Enemy(
@@ -105,7 +105,7 @@ class Encounter:
                     "velocity": 7,
                     "pPower": 20,
                     "shootCD": 100000,
-                    "point":250,
+                    "point": 250,
                 },
             ),
             Enemy(
@@ -125,7 +125,7 @@ class Encounter:
                     "pRadius": 7,
                     "pColor": Res.GREEN,
                     "shootCD": 120,
-                    "point":300,
+                    "point": 300,
                 },
             ),
         ]
@@ -138,7 +138,9 @@ class Encounter:
             if self.distance >= enemy.position:
                 if not enemy.dying or not enemy.isDead:
                     return False
-        return self.distance - offset > 0 and self.distance < 3500
+        return (
+            self.distance - offset > 0 and self.distance < self._enemy_pool[-1].position
+        )
 
     def scroll(self, offset):
         self.distance -= offset
