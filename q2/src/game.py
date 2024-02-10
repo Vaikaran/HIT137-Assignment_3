@@ -86,10 +86,10 @@ class Game:
             self.clock.tick(FPS)
             self.handle_events()
             self.handle_keys()
+            self.player.update()
             self.player.collision_check(self.enemies)
             for enemy in self.enemies:
-                enemy.move()
-                enemy.shoot()
+                enemy.update()
                 enemy.collision_check([self.player])
             self.render_game()
         pass

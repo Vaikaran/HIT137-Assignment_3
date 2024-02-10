@@ -50,6 +50,7 @@ class _characterBase:
         self.shootCD = 300
         self.maxhealth = 100
         self.health = self.maxhealth
+        self.invulnerableFrames = 0
         pass
 
     pass
@@ -156,7 +157,7 @@ class Character(_characterBase):
 
     def check_bullets(
         self, bullets: list[_characterBase._projectile]
-    ) -> (bool, _characterBase._projectile):
+    ) -> tuple[bool, _characterBase._projectile]:
         for bullet in bullets:
             if (
                 bullet.y - bullet.radius < self.hitbox[1] + self.hitbox[3]
@@ -169,10 +170,13 @@ class Character(_characterBase):
                     bullets.pop(bullets.index(bullet))
                     return True, bullet
         return False, None
-
+    def update(self):
+        pass
 
 class Player(Character):
     ATTACK_ANIMATE_DURATION = 0.4
+    # invulnerable duration after being damaged
+    INVULNERABLE_DURATION = 1
 
     def __init__(self, x, y, width, height, vel, img_path) -> None:
         super().__init__(x, y, width, height, vel, img_path)
@@ -256,15 +260,20 @@ class Player(Character):
             self.shootCD = 12
 
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
-        self.health -= bullet.power
+        if self.invulnerableFrames == 0:
+            self.health -= bullet.power
+            self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
         # print("hit by bullet")
+            
         pass
 
     def hit_by_enemy(self, enemy: _characterBase):
-        # -25% hp if hit with enemy
-        self.health -= self.maxhealth * 0.25
+        if self.invulnerableFrames == 0:
+            # -25% hp if hit with enemy
+            self.health -= self.maxhealth * 0.25
+            self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
+            print(f"hit by enemy:{enemy}")
         # print(f"hit by enemy:{enemy}")
-        # todo, invulnerable by enemy for the next 0.5 second if hit with this method
         pass
 
 
@@ -311,3 +320,7 @@ class Enemy(Character):
         self.health -= bullet.power
         print("hit by bullet")
         pass
+
+    def update(self):
+        self.move()
+        self.shoot()
