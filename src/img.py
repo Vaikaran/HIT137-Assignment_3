@@ -31,9 +31,3 @@ class SpriteSheet:
                 ]
             )
         return frames
-
-
-class BGSprite(pg.sprite.Sprite):
-    def __init__(self, name: str, coordinate: tuple) -> None:
-        super().__init__()
-        self.image = pg.image.load

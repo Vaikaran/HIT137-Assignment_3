@@ -58,10 +58,16 @@ class Game:
         self.clock = pg.time.Clock()
         self.window = Window(caption)
         self.player = Player(
-            80, 420, 64, 64, Res.get("characters", "char_universal.png"), 4
+            80, 420, 64, 64, 4, Res.get("characters", "char_universal.png")
         )
         self.enemy = Enemy(
-            350, 420, 64, 64, Res.get("characters", "goblin1_universal.png"), 3
+            350,
+            420,
+            64,
+            64,
+            2,
+            (80, SCREEN_WIDTH - 96),
+            Res.get("characters", "goblin1_universal.png"),
         )
 
     def render_game(self):
