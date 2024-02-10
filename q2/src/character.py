@@ -4,6 +4,7 @@ from pygame.key import ScancodeWrapper
 from src.resource import Res
 from src.img import SpriteSheet
 from src import game
+from src.encounter import Encounter
 
 
 class _characterBase:
@@ -32,14 +33,21 @@ class _characterBase:
     ATTACK_ANIMATE_DURATION = 0.4
     DYING_ANIMATE_DURATION = 1
 
-    def __init__(self, x, y, width, height, vel, img_path) -> None:
-        self.initialData = (x, y, width, height, vel, img_path)
+    # default projectile params
+    PROJECTILE_RADIUS = 5
+    PROJECTILE_VELOCITY = 6
+    PROJECTILE_POWER = 20
+    PROJECTILE_COLOR = Res.CYAN
+    PROJECTILE_COOLDOWN = 200
+
+    def __init__(self, x, y, width, height, vel, img_frames) -> None:
+        self.initialData = (x, y, width, height, vel, img_frames)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.vel = vel
-        self.frames = SpriteSheet(pg.image.load(img_path)).get_frames(width, height)
+        self.frames = img_frames
         self.bullets: list[Character._projectile] = []
         self.hitbox = (self.x + 12, self.y + 4, 40, 60)
         self.actionCount = 0
@@ -47,7 +55,12 @@ class _characterBase:
         self.facing_diraction = 3
         # action of character: 0-standing, 1-walking, 2-attacking, 3-dying, 4-dead
         self.action = 0
-        self.shootCD = 300
+        self.shootCD = _characterBase.PROJECTILE_COOLDOWN
+        self.currentCD = self.shootCD
+        self.pRadius = _characterBase.PROJECTILE_RADIUS
+        self.pColor = _characterBase.PROJECTILE_COLOR
+        self.pVelocity = _characterBase.PROJECTILE_VELOCITY
+        self.pPower = _characterBase.PROJECTILE_POWER
         self.maxhealth = 100
         self.health = self.maxhealth
         self.invulnerableFrames = 0
@@ -207,8 +220,8 @@ class Character(_characterBase):
         if self.health <= 0:
             self.die()
         # update shooting cooldown
-        if self.shootCD > 0:
-            self.shootCD -= 1
+        if self.currentCD > 0:
+            self.currentCD -= 1
         # update hitbox
         self.hitbox = (self.x + 12, self.y + 4, 40, 60)
         # update invulnerable status
@@ -231,13 +244,15 @@ class Player(Character):
     # invulnerable duration after being damaged
     INVULNERABLE_DURATION = 1
 
-    def __init__(self, x, y, width, height, vel, img_path) -> None:
-        super().__init__(x, y, width, height, vel, img_path)
-        self.boundary = (width / 2, game.SCREEN_WIDTH * 3 / 4 - width / 2)
+    def __init__(self, x, y, width, height, vel, img_frames) -> None:
+        super().__init__(x, y, width, height, vel, img_frames)
+        self.boundary = (width / 2, game.SCREEN_WIDTH * 3 / 5 - width / 2)
         self.isJump = False
         self.jumpCount = 15
-        self.shootCD = 0
+        self.shootCD = 12
+        self.pColor = Res.PINK_RED
         self.score = 0
+        self.encounter = Encounter()
 
         self.hitSound = pg.mixer.Sound(Res.get("sound", "collision.ogg"))
         self.shootSound = pg.mixer.Sound(Res.get("sound", "projectile1.ogg"))
@@ -270,6 +285,7 @@ class Player(Character):
             if self.x < self.boundary[0]:
                 self.x = self.boundary[0]
                 # scroll right only
+                # todo: scroll left on some fight
                 # game.scroll(self.vel)
 
             if self.action != 1:
@@ -286,7 +302,9 @@ class Player(Character):
             self.x += self.vel
             if self.x > self.boundary[1]:
                 self.x = self.boundary[1]
-                game.scroll(-self.vel)
+                if self.encounter.scrollable(-self.vel):
+                    game.scroll(-self.vel)
+                    self.encounter.scroll(-self.vel)
             if self.action != 1:
                 self.actionCount = 0
                 self.action = 1
@@ -297,18 +315,19 @@ class Player(Character):
                 self.actionCount = 0
 
     def shoot(self):
-        if not (self.dying or self.isDead) and not self.shootCD > 0:
+        if not (self.dying or self.isDead) and not self.currentCD > 0:
             self.bullets.append(
                 self._projectile(
                     round(self.x + self.width // 2),
                     round(self.y + self.height // 2),
-                    5,
-                    (230, 100, 100),
-                    6,
+                    self.pRadius,
+                    self.pColor,
+                    self.pVelocity,
                     self.facing_diraction,
+                    self.pPower,
                 )
             )
-            self.shootCD = 12
+            self.currentCD = self.shootCD
             if not Res.muted:
                 self.shootSound.play()
 
@@ -349,14 +368,40 @@ class Player(Character):
 class Enemy(Character):
 
     ATTACK_ANIMATE_DURATION = 0.8
+    DEFAULT_POINT = 50
 
-    def __init__(self, x, y, width, height, vel, path: tuple, img_path) -> None:
-        super().__init__(x, y, width, height, vel, img_path)
+    def __init__(
+        self, x, y, width, height, vel, img_frames, position, path: tuple, params: dict
+    ) -> None:
+        super().__init__(x, y, width, height, vel, img_frames)
+        self.position = position
         self.path = path
+        self.point = Enemy.DEFAULT_POINT
         self.action = 1
         self.facing_diraction = 1
         self.hitSound = pg.mixer.Sound(Res.get("sound", "hit.ogg"))
         self.shootSound = pg.mixer.Sound(Res.get("sound", "projectile2.ogg"))
+        self.update_params(params)
+
+    def update_params(self, params: dict):
+        if "health" in params:
+            self.maxhealth = params["health"]
+            self.health = self.maxhealth
+        if "velocity" in params:
+            self.vel = params["velocity"]
+        if "point" in params:
+            self.point = params["point"]
+        if "shootCD" in params:
+            self.shootCD = params["shootCD"]
+        if "pRadius" in params:
+            self.pRadius = params["pRadius"]
+        if "pColor" in params:
+            self.pColor = params["pColor"]
+        if "pVelocity" in params:
+            self.pVelocity = params["pVelocity"]
+        if "pPower" in params:
+            self.pPower = params["pPower"]
+        pass
 
     def move(self):
         if self.dying or self.isDead:
@@ -377,28 +422,35 @@ class Enemy(Character):
     def shoot(self):
         if self.dying or self.isDead:
             return
-        if not self.shootCD > 0:
+        # skip if not on screen
+        if self.x <= 0 or self.x >= game.SCREEN_WIDTH - self.width:
+            return
+        if not self.currentCD > 0:
             self.bullets.append(
                 self._projectile(
                     round(self.x + self.width // 2),
                     round(self.y + self.height // 2),
-                    5,
-                    (100, 230, 230),
-                    6,
+                    self.pRadius,
+                    self.pColor,
+                    self.pVelocity,
                     self.facing_diraction,
+                    self.pPower,
                 )
             )
-            self.shootCD = 300
+            self.currentCD = self.shootCD
             if not Res.muted:
                 self.shootSound.play()
         pass
 
-    def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
+    def hit_by_bullet(self, enemy: Player, bullet: _characterBase._projectile):
         if not (self.dying or self.isDead):
             self.health -= bullet.power
             if self.health <= 0:
+                enemy.score += self.point
                 if not Res.muted:
                     self.hitSound.play()
+            else:
+                enemy.score += 1
         pass
 
     def scroll(self, offset):
@@ -408,6 +460,3 @@ class Enemy(Character):
         self.move()
         self.shoot()
         super().update()
-        # delete enemy if it is behind left of the screen
-        if self.x + self.width < -game.SCREEN_WIDTH // 3:
-            self.die()
