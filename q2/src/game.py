@@ -68,11 +68,12 @@ class Game:
         self.music = pg.mixer.music.load(Res.get("sound", "bg1.ogg"))
         pg.mixer.music.play(-1)
         pg.mixer.music.set_volume(0.5)
-        # init font
 
-        self.headerFont = pg.font.SysFont("comicsans", 36, True)
+        # init font
+        self.headerFont = pg.font.SysFont("comicsans", 52, True)
         self.menuFont = pg.font.SysFont("comicsans", 26)
-        self.scoreFont = pg.font.SysFont("comicsans", 22)
+        self.statusFont = pg.font.SysFont("comicsans", 22)
+        self.descFont = pg.font.SysFont("arial", 20)
         # print(pg.font.get_fonts())
 
     def run(self):
@@ -97,18 +98,35 @@ class Game:
         pass
 
     def main_menu(self):
+        # draw title
+        title = self.headerFont.render(
+            f"{pg.display.get_caption()[0]}", 1, Res.LIGHT_GREEN
+        )
+        self.window.screen.blit(title, (SCREEN_WIDTH / 2 - title.get_width() / 2, 120))
+        # draw menu
 
+        self.window.screen.blit(title, (SCREEN_WIDTH / 2 - title.get_width() / 2, 120))
+        # draw descriptions
+        descText = "Press anykey to start \nPress W,A,S,D or ARROW keys to move \nPress SPACE to jump, \nPress J or ENTER to shoot\nPress F1 to mute/unmute"
+        textSurfs: list[Surface] = []
+        for text in descText.split("\n"):
+            textSurfs.append(self.descFont.render(text, 1, Res.BLACK))
+        height = 0
+
+        for textSurf in reversed(textSurfs):
+            height += textSurf.get_height()
+            self.window.screen.blit(textSurf, (40, SCREEN_HEIGHT - height - 14))
         pass
 
     def in_game(self):
+        # create character if none
         if not hasattr(self, "player"):
             self.player = Player(
                 80, 420, 64, 64, 4, Res.get("image", "char_universal.png")
             )
-
-        # create character if none
-        scoreText = self.scoreFont.render(f"Score: {self.player.score}", 1, Res.BLACK)
-        self.window.screen.blit(scoreText, (40, 14))
+        # update score
+        statusText = self.statusFont.render(f"Score: {self.player.score}", 1, Res.BLACK)
+        self.window.screen.blit(statusText, (40, 14))
         # todo enemies encounters
         if not hasattr(self, "enemies") or not self.enemies:
             self.enemies = [
@@ -142,19 +160,40 @@ class Game:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self._run = False
-        pass
+                return
+            if event.type == pg.KEYUP:
+                print(f"event key:{event.key}")
+                print(f"f1 key:{pg.K_F1}")
+                if event.key == pg.K_F1:
+                    if Res.muted:
+                        pg.mixer.music.unpause()
+                    else:
+                        pg.mixer.music.pause()
+                    Res.muted = not Res.muted
+                    return
+                # restart game
+                if event.key == pg.K_r:
+                    self.player.reset()
+                    self.gameStatus = 1
+                # back to menu
+                if event.key == pg.K_ESCAPE:
+                    self.gameStatus = 0
+                    # todo reset bg, and enemies
+            elif event.type == pg.KEYDOWN:
+                match self.gameStatus:
+                    case 0:
+                        # press anykey to start game
+                        self.gameStatus = 1
+                        return
+    pass
 
     def handle_keys(self):
         keys = pg.key.get_pressed()
         match self.gameStatus:
-            case 0:
-                # press space/enter to start game
-                if keys[pg.K_RETURN] or keys[pg.K_SPACE]:
-                    self.gameStatus = 1
             case 1:
-                if self.player:
+                if hasattr(self, "player"):
                     self.player.handle_keys(self, keys)
-                pass
+                return
             case 2:
                 # restart game
                 if keys[pg.K_r]:
@@ -163,7 +202,7 @@ class Game:
                     # todo reset bg, and enemies
                 if keys[pg.K_ESCAPE]:
                     self.gameStatus = 0
-                pass
+                return
         pass
 
     def scroll(self, vel):

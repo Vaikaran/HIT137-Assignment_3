@@ -76,11 +76,11 @@ class Character(_characterBase):
         # skip draw health bar if dead
         if not self.isDead:
             pg.draw.rect(
-                win, (30, 30, 30), (self.hitbox[0], self.hitbox[1] - 20, 50, 8), 0, 2
+                win, Res.DARK_GRAY, (self.hitbox[0], self.hitbox[1] - 20, 50, 8), 0, 2
             )
             pg.draw.rect(
                 win,
-                (255, 8, 8),
+                Res.RED,
                 (
                     self.hitbox[0],
                     self.hitbox[1] - 20,
@@ -250,7 +250,8 @@ class Player(Character):
         # jump
         if keys[pg.K_SPACE]:
             if not self.isJump:
-                self.jumpSound.play()
+                if not Res.muted:
+                    self.jumpSound.play()
             self.isJump = True
         # shoot
         if keys[pg.K_j] or keys[pg.K_RETURN]:
@@ -308,13 +309,15 @@ class Player(Character):
                 )
             )
             self.shootCD = 12
-            self.shootSound.play()
+            if not Res.muted:
+                self.shootSound.play()
 
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
         if self.invulnerableFrames == 0:
             self.health -= bullet.power
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
-            self.hitSound.play()
+            if not Res.muted:
+                self.hitSound.play()
 
         pass
 
@@ -323,7 +326,8 @@ class Player(Character):
             # -25% hp if hit with enemy
             self.health -= self.maxhealth * 0.25
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
-            self.hitSound.play()
+            if not Res.muted:
+                self.hitSound.play()
         pass
 
     def update(self):
@@ -385,14 +389,16 @@ class Enemy(Character):
                 )
             )
             self.shootCD = 300
-            self.shootSound.play()
+            if not Res.muted:
+                self.shootSound.play()
         pass
 
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
         if not (self.dying or self.isDead):
             self.health -= bullet.power
             if self.health <= 0:
-                self.hitSound.play()
+                if not Res.muted:
+                    self.hitSound.play()
         pass
 
     def scroll(self, offset):
