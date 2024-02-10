@@ -6,7 +6,22 @@ from src.img import SpriteSheet
 from src import game
 
 
-class Character:
+class _characterBase:
+    class _projectile:
+        def __init__(self, x, y, radius, color, vel, facing) -> None:
+            self.x = x
+            self.y = y
+            self.radius = radius
+            self.color = color
+            self.facing = facing
+            neg = 1
+            if facing == 1:
+                neg = -1
+            self.vel = vel * neg
+
+        def draw(self, win):
+            pg.draw.circle(win, self.color, (self.x, self.y), self.radius)
+
     WALK_IMG_NUM = 10
     ATTACK_IMG_NUM = 12
     DYING_IMG_NUM = 8
@@ -24,14 +39,32 @@ class Character:
         self.vel = vel
         self.imgSheet = SpriteSheet(pg.image.load(img_path))
         self.frames = self.imgSheet.get_frames(width, height)
+        self.bullets: list[Character._projectile] = []
+        self.hitbox = (self.x + 12, self.y + 4, 40, 60)
         self.actionCount = 0
         # facing direction based on sprite image: 0-up, 1-left, 2-down, 3-right
         self.facing_diraction = 3
         # action of character: 0-standing, 1-walking, 2-attacking, 3-dying
         self.action = 0
+        self.shootCD = 300
         pass
 
+    pass
+
+
+class Character(_characterBase):
+
     def draw(self, win: Surface):
+        # update projectiles
+        if self.shootCD > 0:
+            self.shootCD -= 1
+        for index, bullet in enumerate(self.bullets):
+            if bullet.x < game.SCREEN_WIDTH and bullet.x > 0:
+                bullet.x += bullet.vel
+                bullet.draw(win)
+            else:
+                self.bullets.pop(index)
+
         # standing
         if self.action == 0:
             self.actionCount = 0
@@ -79,6 +112,46 @@ class Character:
                 (self.x, self.y),
             )
         self.actionCount += 1
+        # update hitbox
+        self.hitbox = (self.x + 12, self.y + 4, 40, 60)
+
+    def collision_check(self, enemies: list[_characterBase]):
+        for enemy in enemies:
+            if (
+                self.hitbox[1] < enemy.hitbox[1] + enemy.hitbox[3]
+                and self.hitbox[1] + self.hitbox[3] > enemy.hitbox[1]
+            ):
+                if (
+                    self.hitbox[0] < enemy.hitbox[0] + enemy.hitbox[2]
+                    and self.hitbox[0] + self.hitbox[2] > enemy.hitbox[0]
+                ):
+                    self.hit_by_enemy(enemy)
+            result = self.check_bullets(enemy.bullets)
+            if result[0]:
+                self.hit_by_bullet(result[1])
+            pass
+        pass
+
+    def hit_by_enemy(self, enemy: _characterBase):
+        pass
+
+    def hit_by_bullet(self, bullet: _characterBase._projectile):
+        pass
+
+    def check_bullets(
+        self, bullets: list[_characterBase._projectile]
+    ) -> (bool, _characterBase._projectile):
+        for bullet in bullets:
+            if (
+                bullet.y - bullet.radius < self.hitbox[1] + self.hitbox[3]
+                and bullet.y + bullet.radius > self.hitbox[1]
+            ):
+                if (
+                    bullet.x + bullet.radius > self.hitbox[0]
+                    and bullet.x - bullet.radius < self.hitbox[0] + self.hitbox[2]
+                ):
+                    return True, bullet
+        return False, None
 
 
 class Player(Character):
@@ -87,14 +160,11 @@ class Player(Character):
     def __init__(self, x, y, width, height, vel, img_path) -> None:
         super().__init__(x, y, width, height, vel, img_path)
         self.boundary = (width / 2, game.SCREEN_WIDTH / 2 - width / 2)
-        self.bullets: list[_projectile] = []
-        self.shootCD = 0
-        self.hitbox = (self.x + 15, self.y + 5, 40, 60)
         self.isJump = False
         self.jumpCount = 15
+        self.shootCD = 0
 
     def draw(self, win: Surface):
-        pg.draw.rect(win, (255, 0, 0), self.hitbox, 2)
         # update jump
         if self.isJump:
             if self.jumpCount >= -15:
@@ -107,15 +177,6 @@ class Player(Character):
                 self.isJump = False
                 self.jumpCount = 15
             pass
-        # update projectiles
-        if self.shootCD > 0:
-            self.shootCD -= 1
-        for index, bullet in enumerate(self.bullets):
-            if bullet.x < game.SCREEN_WIDTH and bullet.x > 0:
-                bullet.x += bullet.vel
-                bullet.draw(win)
-            else:
-                self.bullets.pop(index)
 
         return super().draw(win)
 
@@ -166,17 +227,24 @@ class Player(Character):
     def shoot(self):
         if not self.shootCD > 0:
             self.bullets.append(
-                _projectile(
+                self._projectile(
                     round(self.x + self.width // 2),
                     round(self.y + self.height // 2),
                     5,
-                    (200, 230, 230),
+                    (230, 100, 100),
                     6,
                     self.facing_diraction,
                 )
             )
-            self.shootCD = 5
+            self.shootCD = 12
 
+    def hit_by_bullet(self, bullet: _characterBase._projectile):
+        print("hit by bullet")
+        pass
+    
+    def hit_by_enemy(self, enemy: _characterBase):
+        print(f"hit by enemy:{enemy}")
+        pass
 
 class Enemy(Character):
 
@@ -187,11 +255,6 @@ class Enemy(Character):
         self.path = path
         self.action = 1
         self.facing_diraction = 1
-        self.hitbox = (self.x + 15, self.y + 5, 40, 60)
-
-    def draw(self, win: Surface):
-        self.move()
-        super().draw(win)
 
     def move(self):
         if self.facing_diraction == 1:
@@ -207,18 +270,21 @@ class Enemy(Character):
                 self.actionCount = 0
         pass
 
-
-class _projectile:
-    def __init__(self, x, y, radius, color, vel, facing) -> None:
-        self.x = x
-        self.y = y
-        self.radius = radius
-        self.color = color
-        self.facing = facing
-        neg = 1
-        if facing == 1:
-            neg = -1
-        self.vel = vel * neg
-
-    def draw(self, win):
-        pg.draw.circle(win, self.color, (self.x, self.y), self.radius)
+    def shoot(self):
+        if not self.shootCD > 0:
+            self.bullets.append(
+                self._projectile(
+                    round(self.x + self.width // 2),
+                    round(self.y + self.height // 2),
+                    5,
+                    (100, 230, 230),
+                    6,
+                    self.facing_diraction,
+                )
+            )
+            self.shootCD = 300
+        pass
+    
+    def hit_by_bullet(self, bullet: _characterBase._projectile):
+        print("hit by bullet")
+        pass

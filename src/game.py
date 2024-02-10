@@ -19,7 +19,7 @@ class Window:
         self.bg_img1 = pg.image.load(Res.get("background", "Mountains2.png"))
         self.bg_img2 = pg.image.load(Res.get("background", "Mountains3.png"))
         # scale to screen square size
-        self.bg_img = pg.transform.scale(self.bg_img0, (SCREEN_WIDTH, SCREEN_WIDTH))
+        self.bg_img = pg.transform.scale(self.bg_img1, (SCREEN_WIDTH, SCREEN_WIDTH))
         self.bg_index = 0
 
     def draw(self):
@@ -60,20 +60,23 @@ class Game:
         self.player = Player(
             80, 420, 64, 64, 4, Res.get("characters", "char_universal.png")
         )
-        self.enemy = Enemy(
-            350,
-            420,
-            64,
-            64,
-            2,
-            (80, SCREEN_WIDTH - 96),
-            Res.get("characters", "goblin1_universal.png"),
-        )
+        self.enemies = [
+            Enemy(
+                350,
+                420,
+                64,
+                64,
+                2,
+                (80, SCREEN_WIDTH - 96),
+                Res.get("characters", "goblin1_universal.png"),
+            )
+        ]
 
     def render_game(self):
         self.window.draw()
         self.player.draw(self.window.screen)
-        self.enemy.draw(self.window.screen)
+        for enemy in self.enemies:
+            enemy.draw(self.window.screen)
         pg.display.update()
         pass
 
@@ -83,6 +86,10 @@ class Game:
             self.clock.tick(FPS)
             self.handle_events()
             self.handle_keys()
+            self.player.collision_check(self.enemies)
+            for enemy in self.enemies:
+                enemy.move()
+                enemy.shoot()
             self.render_game()
         pass
 
