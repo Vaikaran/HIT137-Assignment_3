@@ -33,13 +33,13 @@ class _characterBase:
     DYING_ANIMATE_DURATION = 1
 
     def __init__(self, x, y, width, height, vel, img_path) -> None:
+        self.initialData = (x, y, width, height, vel, img_path)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.vel = vel
-        self.imgSheet = SpriteSheet(pg.image.load(img_path))
-        self.frames = self.imgSheet.get_frames(width, height)
+        self.frames = SpriteSheet(pg.image.load(img_path)).get_frames(width, height)
         self.bullets: list[Character._projectile] = []
         self.hitbox = (self.x + 12, self.y + 4, 40, 60)
         self.actionCount = 0
@@ -51,10 +51,14 @@ class _characterBase:
         self.maxhealth = 100
         self.health = self.maxhealth
         self.invulnerableFrames = 0
-        self.dying = False
-        pass
 
-    pass
+    @property
+    def dying(self):
+        return self.action == 3
+
+    @property
+    def isDead(self):
+        return self.action > 3
 
 
 class Character(_characterBase):
@@ -70,9 +74,9 @@ class Character(_characterBase):
 
         # draw health bar
         # skip draw health bar if dead
-        if not self.isDead():
+        if not self.isDead:
             pg.draw.rect(
-                win, (30, 30, 30), (self.hitbox[0], self.hitbox[1] - 20, 50, 6)
+                win, (30, 30, 30), (self.hitbox[0], self.hitbox[1] - 20, 50, 8), 0, 2
             )
             pg.draw.rect(
                 win,
@@ -81,8 +85,10 @@ class Character(_characterBase):
                     self.hitbox[0],
                     self.hitbox[1] - 20,
                     50 - (50 / self.maxhealth) * (self.maxhealth - self.health),
-                    6,
+                    8,
                 ),
+                0,
+                2,
             )
         skipDrawing = False
         # blink while invulnerable
@@ -131,7 +137,6 @@ class Character(_characterBase):
         # dying
         elif self.action == 3:
             if self.actionCount >= game.FPS * self.DYING_ANIMATE_DURATION:
-                self.dying = False
                 self.action = 4
                 pass
             if self.dying:
@@ -151,7 +156,11 @@ class Character(_characterBase):
         self.actionCount += 1
 
     def collision_check(self, enemies: list[_characterBase]):
+        if self.dying or self.isDead:
+            return
         for enemy in enemies:
+            if enemy.dying or enemy.isDead:
+                continue
             if (
                 self.hitbox[1] < enemy.hitbox[1] + enemy.hitbox[3]
                 and self.hitbox[1] + self.hitbox[3] > enemy.hitbox[1]
@@ -212,10 +221,9 @@ class Character(_characterBase):
         if self.action < 3:
             self.action = 3
             self.actionCount = 0
-            self.dying = True
 
-    def isDead(self):
-        return self.action > 3
+    def reset(self):
+        self.__init__(*self.initialData)
 
 
 class Player(Character):
@@ -225,18 +233,27 @@ class Player(Character):
 
     def __init__(self, x, y, width, height, vel, img_path) -> None:
         super().__init__(x, y, width, height, vel, img_path)
-        self.boundary = (width / 2, game.SCREEN_WIDTH / 2 - width / 2)
+        self.boundary = (width / 2, game.SCREEN_WIDTH * 3 / 4 - width / 2)
         self.isJump = False
         self.jumpCount = 15
         self.shootCD = 0
+        self.score = 0
 
-    def handle_keys(self, keys: ScancodeWrapper, game):
+        self.hitSound = pg.mixer.Sound(Res.get("sound", "collision.ogg"))
+        self.shootSound = pg.mixer.Sound(Res.get("sound", "projectile1.ogg"))
+        self.jumpSound = pg.mixer.Sound(Res.get("sound", "jump.ogg"))
+
+    def handle_keys(self, game, keys: ScancodeWrapper):
         # skip actions after die
-        if self.dying or self.isDead():
+        if self.dying or self.isDead:
             return
+        # jump
         if keys[pg.K_SPACE]:
+            if not self.isJump:
+                self.jumpSound.play()
             self.isJump = True
-        if keys[pg.K_j]:
+        # shoot
+        if keys[pg.K_j] or keys[pg.K_RETURN]:
             if self.action != 2:
                 self.actionCount = 0
                 self.action = 2
@@ -251,7 +268,8 @@ class Player(Character):
             self.x -= self.vel
             if self.x < self.boundary[0]:
                 self.x = self.boundary[0]
-                game.scroll_bg(self.vel)
+                # scroll right only
+                # game.scroll(self.vel)
 
             if self.action != 1:
                 self.actionCount = 0
@@ -267,7 +285,7 @@ class Player(Character):
             self.x += self.vel
             if self.x > self.boundary[1]:
                 self.x = self.boundary[1]
-                game.scroll_bg(-self.vel)
+                game.scroll(-self.vel)
             if self.action != 1:
                 self.actionCount = 0
                 self.action = 1
@@ -278,7 +296,7 @@ class Player(Character):
                 self.actionCount = 0
 
     def shoot(self):
-        if not (self.dying or self.isDead()) and not self.shootCD > 0:
+        if not (self.dying or self.isDead) and not self.shootCD > 0:
             self.bullets.append(
                 self._projectile(
                     round(self.x + self.width // 2),
@@ -290,21 +308,22 @@ class Player(Character):
                 )
             )
             self.shootCD = 12
+            self.shootSound.play()
 
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
         if self.invulnerableFrames == 0:
             self.health -= bullet.power
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
-        # print("hit by bullet")
+            self.hitSound.play()
 
         pass
 
     def hit_by_enemy(self, enemy: _characterBase):
-        if not (self.dying or self.isDead()) and self.invulnerableFrames == 0:
+        if not (self.dying or self.isDead) and self.invulnerableFrames == 0:
             # -25% hp if hit with enemy
             self.health -= self.maxhealth * 0.25
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
-            print(f"hit by enemy:{enemy}")
+            self.hitSound.play()
         pass
 
     def update(self):
@@ -332,9 +351,11 @@ class Enemy(Character):
         self.path = path
         self.action = 1
         self.facing_diraction = 1
+        self.hitSound = pg.mixer.Sound(Res.get("sound", "hit.ogg"))
+        self.shootSound = pg.mixer.Sound(Res.get("sound", "projectile2.ogg"))
 
     def move(self):
-        if self.dying or self.isDead():
+        if self.dying or self.isDead:
             return
         if self.facing_diraction == 1:
             self.x -= self.vel
@@ -350,7 +371,7 @@ class Enemy(Character):
         pass
 
     def shoot(self):
-        if self.dying or self.isDead():
+        if self.dying or self.isDead:
             return
         if not self.shootCD > 0:
             self.bullets.append(
@@ -364,12 +385,14 @@ class Enemy(Character):
                 )
             )
             self.shootCD = 300
+            self.shootSound.play()
         pass
 
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
-        if not (self.dying or self.isDead()):
+        if not (self.dying or self.isDead):
             self.health -= bullet.power
-            print("hit by bullet")
+            if self.health <= 0:
+                self.hitSound.play()
         pass
 
     def scroll(self, offset):
