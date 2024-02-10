@@ -88,7 +88,9 @@ class Game:
             self.handle_keys()
             self.player.update()
             self.player.collision_check(self.enemies)
-            for enemy in self.enemies:
+            for index, enemy in enumerate(self.enemies):
+                if enemy.isDead():
+                    self.enemies.pop(index)
                 enemy.update()
                 enemy.collision_check([self.player])
             self.render_game()
@@ -108,5 +110,6 @@ class Game:
     
     def scroll_bg(self, vel):
         self.window.scroll_bg(vel)
-        self.enemies
+        for enemy in self.enemies:
+            enemy.scroll(vel)
         pass

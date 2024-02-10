@@ -45,12 +45,13 @@ class _characterBase:
         self.actionCount = 0
         # facing direction based on sprite image: 0-up, 1-left, 2-down, 3-right
         self.facing_diraction = 3
-        # action of character: 0-standing, 1-walking, 2-attacking, 3-dying
+        # action of character: 0-standing, 1-walking, 2-attacking, 3-dying, 4-dead
         self.action = 0
         self.shootCD = 300
         self.maxhealth = 100
         self.health = self.maxhealth
         self.invulnerableFrames = 0
+        self.dying = False
         pass
 
     pass
@@ -59,9 +60,7 @@ class _characterBase:
 class Character(_characterBase):
 
     def draw(self, win: Surface):
-        # update projectiles
-        if self.shootCD > 0:
-            self.shootCD -= 1
+        # draw projectiles
         for index, bullet in enumerate(self.bullets):
             if bullet.x < game.SCREEN_WIDTH and bullet.x > 0:
                 bullet.x += bullet.vel
@@ -70,26 +69,39 @@ class Character(_characterBase):
                 self.bullets.pop(index)
 
         # draw health bar
-        pg.draw.rect(win, (255, 8, 8), (self.hitbox[0], self.hitbox[1] - 20, 50, 10))
-        pg.draw.rect(
-            win,
-            (8, 250, 200),
-            (
-                self.hitbox[0],
-                self.hitbox[1] - 20,
-                50 - (50 / self.maxhealth) * (self.maxhealth - self.health),
-                10,
-            ),
-        )
+        # skip draw health bar if dead
+        if not self.isDead():
+            pg.draw.rect(
+                win, (30, 30, 30), (self.hitbox[0], self.hitbox[1] - 20, 50, 6)
+            )
+            pg.draw.rect(
+                win,
+                (255, 8, 8),
+                (
+                    self.hitbox[0],
+                    self.hitbox[1] - 20,
+                    50 - (50 / self.maxhealth) * (self.maxhealth - self.health),
+                    6,
+                ),
+            )
+        skipDrawing = False
+        # blink while invulnerable
+        if self.invulnerableFrames > 0:
+            if self.invulnerableFrames % 11 < 6:
+                # skip drawing character in current frame
+                skipDrawing = True
+                pass
 
         # standing
         if self.action == 0:
             self.actionCount = 0
-            win.blit(self.frames[8 + self.facing_diraction][0], (self.x, self.y))
+            not skipDrawing and win.blit(
+                self.frames[8 + self.facing_diraction][0], (self.x, self.y)
+            )
         # walk
         elif self.action == 1:
             self.actionCount %= game.FPS * self.WALK_ANIMATE_DURATION
-            win.blit(
+            not skipDrawing and win.blit(
                 self.frames[8 + self.facing_diraction][
                     int(
                         self.actionCount
@@ -102,7 +114,7 @@ class Character(_characterBase):
         # attacking
         elif self.action == 2:
             self.actionCount %= game.FPS * self.ATTACK_ANIMATE_DURATION
-            win.blit(
+            not skipDrawing and win.blit(
                 self.frames[16 + self.facing_diraction][
                     int(
                         self.actionCount
@@ -117,20 +129,26 @@ class Character(_characterBase):
                 (self.x, self.y),
             )
         # dying
-        else:
-            self.actionCount %= game.FPS * self.DYING_ANIMATE_DURATION
-            win.blit(
-                self.frames[20][
-                    int(
-                        self.actionCount
-                        // (game.FPS * self.DYING_ANIMATE_DURATION / self.DYING_IMG_NUM)
-                    )
-                ],
-                (self.x, self.y),
-            )
+        elif self.action == 3:
+            if self.actionCount >= game.FPS * self.DYING_ANIMATE_DURATION:
+                self.dying = False
+                self.action = 4
+                pass
+            if self.dying:
+                not skipDrawing and win.blit(
+                    self.frames[20][
+                        int(
+                            self.actionCount
+                            // (
+                                game.FPS
+                                * self.DYING_ANIMATE_DURATION
+                                / self.DYING_IMG_NUM
+                            )
+                        )
+                    ],
+                    (self.x, self.y),
+                )
         self.actionCount += 1
-        # update hitbox
-        self.hitbox = (self.x + 12, self.y + 4, 40, 60)
 
     def collision_check(self, enemies: list[_characterBase]):
         for enemy in enemies:
@@ -170,8 +188,35 @@ class Character(_characterBase):
                     bullets.pop(bullets.index(bullet))
                     return True, bullet
         return False, None
+
+    # calling super is manditory otherwise some actions might not work correctly
     def update(self):
+
+        # check health status
+        if self.action > 3:
+            return
+        if self.health <= 0:
+            self.die()
+        # update shooting cooldown
+        if self.shootCD > 0:
+            self.shootCD -= 1
+        # update hitbox
+        self.hitbox = (self.x + 12, self.y + 4, 40, 60)
+        # update invulnerable status
+        if self.invulnerableFrames > 0:
+            self.invulnerableFrames -= 1
         pass
+
+    def die(self):
+        # update action status
+        if self.action < 3:
+            self.action = 3
+            self.actionCount = 0
+            self.dying = True
+
+    def isDead(self):
+        return self.action > 3
+
 
 class Player(Character):
     ATTACK_ANIMATE_DURATION = 0.4
@@ -185,23 +230,10 @@ class Player(Character):
         self.jumpCount = 15
         self.shootCD = 0
 
-    def draw(self, win: Surface):
-        # update jump
-        if self.isJump:
-            if self.jumpCount >= -15:
-                neg = 1
-                if self.jumpCount < 0:
-                    neg = -1
-                self.y -= abs(self.jumpCount) ** 1.3 * 0.8 * neg
-                self.jumpCount -= 1
-            else:
-                self.isJump = False
-                self.jumpCount = 15
-            pass
-
-        return super().draw(win)
-
     def handle_keys(self, keys: ScancodeWrapper, game):
+        # skip actions after die
+        if self.dying or self.isDead():
+            return
         if keys[pg.K_SPACE]:
             self.isJump = True
         if keys[pg.K_j]:
@@ -246,7 +278,7 @@ class Player(Character):
                 self.actionCount = 0
 
     def shoot(self):
-        if not self.shootCD > 0:
+        if not (self.dying or self.isDead()) and not self.shootCD > 0:
             self.bullets.append(
                 self._projectile(
                     round(self.x + self.width // 2),
@@ -264,17 +296,31 @@ class Player(Character):
             self.health -= bullet.power
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
         # print("hit by bullet")
-            
+
         pass
 
     def hit_by_enemy(self, enemy: _characterBase):
-        if self.invulnerableFrames == 0:
+        if not (self.dying or self.isDead()) and self.invulnerableFrames == 0:
             # -25% hp if hit with enemy
             self.health -= self.maxhealth * 0.25
             self.invulnerableFrames = int(game.FPS * self.INVULNERABLE_DURATION)
             print(f"hit by enemy:{enemy}")
-        # print(f"hit by enemy:{enemy}")
         pass
+
+    def update(self):
+        super().update()
+        # update jump
+        if self.isJump:
+            if self.jumpCount >= -15:
+                neg = 1
+                if self.jumpCount < 0:
+                    neg = -1
+                self.y -= abs(self.jumpCount) ** 1.3 * 0.8 * neg
+                self.jumpCount -= 1
+            else:
+                self.isJump = False
+                self.jumpCount = 15
+            pass
 
 
 class Enemy(Character):
@@ -288,6 +334,8 @@ class Enemy(Character):
         self.facing_diraction = 1
 
     def move(self):
+        if self.dying or self.isDead():
+            return
         if self.facing_diraction == 1:
             self.x -= self.vel
             if self.x - self.vel < self.path[0]:
@@ -302,6 +350,8 @@ class Enemy(Character):
         pass
 
     def shoot(self):
+        if self.dying or self.isDead():
+            return
         if not self.shootCD > 0:
             self.bullets.append(
                 self._projectile(
@@ -317,10 +367,18 @@ class Enemy(Character):
         pass
 
     def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
-        self.health -= bullet.power
-        print("hit by bullet")
+        if not (self.dying or self.isDead()):
+            self.health -= bullet.power
+            print("hit by bullet")
         pass
+
+    def scroll(self, offset):
+        self.x += offset
 
     def update(self):
         self.move()
         self.shoot()
+        super().update()
+        # delete enemy if it is behind left of the screen
+        if self.x + self.width < -game.SCREEN_WIDTH // 3:
+            self.die()
