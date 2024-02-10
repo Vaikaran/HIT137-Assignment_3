@@ -8,12 +8,13 @@ from src import game
 
 class _characterBase:
     class _projectile:
-        def __init__(self, x, y, radius, color, vel, facing) -> None:
+        def __init__(self, x, y, radius, color, vel, facing, power=10) -> None:
             self.x = x
             self.y = y
             self.radius = radius
             self.color = color
             self.facing = facing
+            self.power = power
             neg = 1
             if facing == 1:
                 neg = -1
@@ -47,6 +48,8 @@ class _characterBase:
         # action of character: 0-standing, 1-walking, 2-attacking, 3-dying
         self.action = 0
         self.shootCD = 300
+        self.maxhealth = 100
+        self.health = self.maxhealth
         pass
 
     pass
@@ -64,6 +67,19 @@ class Character(_characterBase):
                 bullet.draw(win)
             else:
                 self.bullets.pop(index)
+
+        # draw health bar
+        pg.draw.rect(win, (255, 8, 8), (self.hitbox[0], self.hitbox[1] - 20, 50, 10))
+        pg.draw.rect(
+            win,
+            (8, 250, 200),
+            (
+                self.hitbox[0],
+                self.hitbox[1] - 20,
+                50 - (50 / self.maxhealth) * (self.maxhealth - self.health),
+                10,
+            ),
+        )
 
         # standing
         if self.action == 0:
@@ -128,14 +144,14 @@ class Character(_characterBase):
                     self.hit_by_enemy(enemy)
             result = self.check_bullets(enemy.bullets)
             if result[0]:
-                self.hit_by_bullet(result[1])
+                self.hit_by_bullet(enemy, result[1])
             pass
         pass
 
     def hit_by_enemy(self, enemy: _characterBase):
         pass
 
-    def hit_by_bullet(self, bullet: _characterBase._projectile):
+    def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
         pass
 
     def check_bullets(
@@ -150,6 +166,7 @@ class Character(_characterBase):
                     bullet.x + bullet.radius > self.hitbox[0]
                     and bullet.x - bullet.radius < self.hitbox[0] + self.hitbox[2]
                 ):
+                    bullets.pop(bullets.index(bullet))
                     return True, bullet
         return False, None
 
@@ -171,7 +188,7 @@ class Player(Character):
                 neg = 1
                 if self.jumpCount < 0:
                     neg = -1
-                self.y -= abs(self.jumpCount) ** 0.9 * 1.2 * neg
+                self.y -= abs(self.jumpCount) ** 1.3 * 0.8 * neg
                 self.jumpCount -= 1
             else:
                 self.isJump = False
@@ -180,7 +197,7 @@ class Player(Character):
 
         return super().draw(win)
 
-    def handle_keys(self, keys: ScancodeWrapper, window):
+    def handle_keys(self, keys: ScancodeWrapper, game):
         if keys[pg.K_SPACE]:
             self.isJump = True
         if keys[pg.K_j]:
@@ -198,7 +215,7 @@ class Player(Character):
             self.x -= self.vel
             if self.x < self.boundary[0]:
                 self.x = self.boundary[0]
-                window.scroll_bg(self.vel)
+                game.scroll_bg(self.vel)
 
             if self.action != 1:
                 self.actionCount = 0
@@ -214,7 +231,7 @@ class Player(Character):
             self.x += self.vel
             if self.x > self.boundary[1]:
                 self.x = self.boundary[1]
-                window.scroll_bg(-self.vel)
+                game.scroll_bg(-self.vel)
             if self.action != 1:
                 self.actionCount = 0
                 self.action = 1
@@ -238,13 +255,18 @@ class Player(Character):
             )
             self.shootCD = 12
 
-    def hit_by_bullet(self, bullet: _characterBase._projectile):
-        print("hit by bullet")
+    def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
+        self.health -= bullet.power
+        # print("hit by bullet")
         pass
-    
+
     def hit_by_enemy(self, enemy: _characterBase):
-        print(f"hit by enemy:{enemy}")
+        # -25% hp if hit with enemy
+        self.health -= self.maxhealth * 0.25
+        # print(f"hit by enemy:{enemy}")
+        # todo, invulnerable by enemy for the next 0.5 second if hit with this method
         pass
+
 
 class Enemy(Character):
 
@@ -284,7 +306,8 @@ class Enemy(Character):
             )
             self.shootCD = 300
         pass
-    
-    def hit_by_bullet(self, bullet: _characterBase._projectile):
+
+    def hit_by_bullet(self, enemy: _characterBase, bullet: _characterBase._projectile):
+        self.health -= bullet.power
         print("hit by bullet")
         pass

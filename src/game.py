@@ -90,6 +90,7 @@ class Game:
             for enemy in self.enemies:
                 enemy.move()
                 enemy.shoot()
+                enemy.collision_check([self.player])
             self.render_game()
         pass
 
@@ -97,9 +98,15 @@ class Game:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self._run = False
+        pass
 
     def handle_keys(self):
         keys = pg.key.get_pressed()
         if self.player:
-            self.player.handle_keys(keys, self.window)
+            self.player.handle_keys(keys, self)
+        pass
+    
+    def scroll_bg(self, vel):
+        self.window.scroll_bg(vel)
+        self.enemies
         pass
