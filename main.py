@@ -71,7 +71,8 @@ class Main:
                     self.isCommanding = False
                     self.labelStatus.config(text="What do you want to do? I'm listening...")
                 else:
-                    self.labelLog.config(text="Your Command: " + tbox)
+                    if self.isCommanding:
+                        self.labelLog.config(text="Your Command: " + tbox)
                     self.textBox1.delete("1.0", "end")
                     self.textBox1.insert(END, tbox)
                     self.isCommanding = self.com.isContinue()
