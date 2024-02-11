@@ -252,6 +252,7 @@ class Player(Character):
         self.boundary = (width / 2, game.SCREEN_WIDTH * 3 / 5 - width / 2)
         self.level = 1
         self.update_level_power()
+        self.currentCD = 0
         self.isJump = False
         self.jumpCount = self.DEFAULT_JUMP_COUNT
         self.pColor = Res.PINK_RED
