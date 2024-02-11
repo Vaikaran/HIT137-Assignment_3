@@ -47,7 +47,7 @@ class _characterBase:
         self.width = width
         self.height = height
         self.vel = vel
-        self.frames = img_frames
+        self.imgs = img_frames
         self.bullets: list[Character._projectile] = []
         self.hitbox = (self.x + 12, self.y + 4, 40, 60)
         self.actionCount = 0
@@ -115,13 +115,13 @@ class Character(_characterBase):
         if self.action == 0:
             self.actionCount = 0
             not skipDrawing and win.blit(
-                self.frames[8 + self.facing_diraction][0], (self.x, self.y)
+                self.imgs[8 + self.facing_diraction][0], (self.x, self.y)
             )
         # walk
         elif self.action == 1:
             self.actionCount %= game.FPS * self.WALK_ANIMATE_DURATION
             not skipDrawing and win.blit(
-                self.frames[8 + self.facing_diraction][
+                self.imgs[8 + self.facing_diraction][
                     int(
                         self.actionCount
                         // (game.FPS * self.WALK_ANIMATE_DURATION / self.WALK_IMG_NUM)
@@ -134,7 +134,7 @@ class Character(_characterBase):
         elif self.action == 2:
             self.actionCount %= game.FPS * self.ATTACK_ANIMATE_DURATION
             not skipDrawing and win.blit(
-                self.frames[16 + self.facing_diraction][
+                self.imgs[16 + self.facing_diraction][
                     int(
                         self.actionCount
                         // (
@@ -154,7 +154,7 @@ class Character(_characterBase):
                 pass
             if self.dying:
                 not skipDrawing and win.blit(
-                    self.frames[20][
+                    self.imgs[20][
                         int(
                             self.actionCount
                             // (
@@ -327,6 +327,15 @@ class Player(Character):
                 self.action = 0
                 self.actionCount = 0
 
+    def draw(self, win: Surface):
+        super().draw(win)
+        # draw encounters
+        for enemy in self.encounter.enemy_list:
+            enemy.draw(win)
+
+        for item in self.encounter.item_list:
+            item.draw(win)
+
     def shoot(self):
         if not (self.dying or self.isDead) and not self.currentCD > 0:
             self.bullets.append(
@@ -394,6 +403,25 @@ class Player(Character):
             self.update_level_power()
             if not Res.muted:
                 self.levelUpSound.play()
+
+        # update encounters
+        self.update_encounters()
+
+    def update_encounters(self):
+
+        enemies = self.encounter.enemy_list
+        self.collision_check(enemies)
+        for index, enemy in enumerate(enemies):
+            if enemy.isDead:
+                enemies.pop(index)
+            enemy.update()
+            enemy.collision_check([self])
+        items = self.encounter.item_list
+        for index, item in enumerate(items):
+            if item.isDead:
+                items.pop(index)
+            item.update()
+            item.collision_check([self])
 
 
 class Enemy(Character):
@@ -492,3 +520,49 @@ class Enemy(Character):
         self.move()
         self.shoot()
         super().update()
+
+
+class Collectible(Enemy):
+    healthBoost = 0
+    invulDuration = 0
+
+    def __init__(
+        self, x, y, width, height, vel, img_frames, position, path: tuple, params: dict
+    ) -> None:
+        super().__init__(x, y, width, height, vel, img_frames, position, path, params)
+        self.facing_diraction = 0
+
+    def update_params(self, params: dict):
+        super().update_params(params)
+        if "health" in params:
+            self.healthBoost = params["health"]
+        if "invulDuration" in params:
+            self.invulDuration = params["invulDuration"]
+        return
+
+    def draw(self, win: Surface):
+        if self.action < 4:
+            win.blit(self.imgs, (self.x, self.y))
+
+    def move(self):
+        pass
+
+    def shoot(self):
+        pass
+
+    def check_bullets(
+        self, bullets: list[_characterBase._projectile]
+    ) -> tuple[bool, _characterBase._projectile]:
+        return False, None
+
+    def hit_by_bullet(self, enemy: Player, bullet: _characterBase._projectile):
+        pass
+
+    def hit_by_enemy(self, enemy: Player):
+        self.action = 4
+        # powerup
+        if self.healthBoost:
+            enemy.health = min(enemy.health + self.healthBoost, enemy.maxhealth)
+
+        if self.invulDuration:
+            enemy.invulnerableFrames = int(game.FPS * self.invulDuration)

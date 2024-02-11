@@ -106,7 +106,7 @@ class Game:
                     self.in_game()
                     pass
                 case 2:
-                    self.gameover()
+                    self.gameend()
                     pass
             pg.display.update()
         pass
@@ -159,20 +159,10 @@ class Game:
             self.gameStatus = 2
         # update player
         self.player.update()
-        enemies = self.player.encounter.encountered_list
-        self.player.collision_check(enemies)
-        for index, enemy in enumerate(enemies):
-            if enemy.isDead:
-                enemies.pop(index)
-            enemy.update()
-            enemy.collision_check([self.player])
-
         # draw characters
         self.player.draw(self.window.screen)
-        for enemy in enemies:
-            enemy.draw(self.window.screen)
 
-    def gameover(self):
+    def gameend(self):
         # draw title
         if self.player.isDead:
             title = self.headerFont.render("Gameover", 1, Res.RED)
