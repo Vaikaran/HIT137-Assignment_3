@@ -258,7 +258,7 @@ class Player(Character):
         self.shootSound = pg.mixer.Sound(Res.get("sound", "projectile1.ogg"))
         self.jumpSound = pg.mixer.Sound(Res.get("sound", "jump.ogg"))
 
-    def handle_keys(self, game, keys: ScancodeWrapper):
+    def handle_keys(self, instance, keys: ScancodeWrapper):
         # skip actions after die
         if self.dying or self.isDead:
             return
@@ -299,12 +299,15 @@ class Player(Character):
         #         self.action = 1
         #     self.facing_diraction = 2
         elif keys[pg.K_RIGHT] or keys[pg.K_d]:
-            self.x += self.vel
-            if self.x > self.boundary[1]:
-                self.x = self.boundary[1]
+            boundaryR = self.boundary[1]
+            if not self.encounter.scrollable(-self.vel):
+                boundaryR = game.SCREEN_WIDTH - self.width
+            if self.x >= boundaryR:
                 if self.encounter.scrollable(-self.vel):
-                    game.scroll(-self.vel)
+                    instance.scroll(-self.vel)
                     self.encounter.scroll(-self.vel)
+            else:
+                self.x += self.vel
             if self.action != 1:
                 self.actionCount = 0
                 self.action = 1
