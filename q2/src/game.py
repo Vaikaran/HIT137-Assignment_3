@@ -62,10 +62,11 @@ class Game:
         self.clock = pg.time.Clock()
         self.window = Window(caption)
         Res.init()
-        # game status: 0-main menu, 1-in game, 2-gameover
-        self.gameStatus = 0
+        # game status: 0-main menu, 1-in game, 2-gameover/finished
+        self._gameStatus = 0
         # init sound/music
         self.music = pg.mixer.music.load(Res.get("sound", "bg2.ogg"))
+        self.gameoverSound = pg.mixer.Sound(Res.get("sound", "gameover.ogg"))
         pg.mixer.music.play(-1)
         pg.mixer.music.set_volume(0.5)
 
@@ -75,6 +76,19 @@ class Game:
         self.statusFont = pg.font.SysFont("comicsans", 22)
         self.descFont = pg.font.SysFont("arial", 20)
         # print(pg.font.get_fonts())
+
+        self.player: Player = None
+
+    @property
+    def gameStatus(self):
+        return self._gameStatus
+
+    @gameStatus.setter
+    def gameStatus(self, status):
+        if status == 2 and self._gameStatus != status:
+            if self.player.isDead:
+                self.gameoverSound.play()
+        self._gameStatus = status
 
     def run(self):
         self._run = True
@@ -123,7 +137,7 @@ class Game:
 
     def in_game(self):
         # create character if none
-        if not hasattr(self, "player"):
+        if not self.player:
             img = Res.get("image", "char_universal.png")
             self.player = Player(
                 Res.CHAR_X,
@@ -156,7 +170,10 @@ class Game:
 
     def gameover(self):
         # draw title
-        title = self.headerFont.render("Gameover", 1, Res.BLUE)
+        if self.player.isDead:
+            title = self.headerFont.render("Gameover", 1, Res.RED)
+        else:
+            title = self.headerFont.render("Congratulations", 1, Res.BLUE)
         self.window.screen.blit(title, (SCREEN_WIDTH / 2 - title.get_width() / 2, 120))
         score = self.hintFont.render(
             f"Your score: {self.player.score}", 1, Res.LIGHT_GREEN
@@ -222,7 +239,7 @@ class Game:
         keys = pg.key.get_pressed()
         match self.gameStatus:
             case 1:
-                if hasattr(self, "player"):
+                if self.player:
                     self.player.handle_keys(self, keys)
                 return
         pass
