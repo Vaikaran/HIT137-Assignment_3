@@ -4,11 +4,11 @@ from src.resource import Res
 
 class Encounter:
     # 500 enemy1
-    # 1000 enemy2 / item
-    # 1400 enemy3
-    # 1800 enemy4
-    # 2000 item
-    # 3000 boss
+    # 1200 enemy2
+    # 1200 enemy3
+    # 2100 enemy4
+    # 2500 enemy5
+    # 3500 enemy6
 
     ENEMY_VELOCITY_2 = 2
     MAX_DISTANCE = 3500
@@ -138,9 +138,7 @@ class Encounter:
             if self.distance >= enemy.position:
                 if not enemy.dying or not enemy.isDead:
                     return False
-        return (
-            self.distance - offset > 0 and self.distance < self._enemy_pool[-1].position
-        )
+        return self.distance - offset > 0
 
     def scroll(self, offset):
         self.distance -= offset
@@ -155,3 +153,10 @@ class Encounter:
             enemy.scroll(offset)
 
     pass
+
+    def finished(self):
+        result = self.distance >= self._enemy_pool[-1].position
+        if result:
+            for enemy in self.encountered_list:
+                result = result and enemy.isDead
+        return result

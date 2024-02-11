@@ -153,6 +153,9 @@ class Game:
         # gameover if player dead
         if self.player.isDead:
             self.gameStatus = 2
+        # end if finished
+        if self.player.encounter.finished():
+            self.gameStatus = 2
         # update player
         self.player.update()
         enemies = self.player.encounter.encountered_list
