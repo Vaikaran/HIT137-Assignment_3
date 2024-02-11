@@ -424,6 +424,7 @@ class Enemy(Character):
             self.point = params["point"]
         if "shootCD" in params:
             self.shootCD = params["shootCD"]
+            self.currentCD = self.shootCD
         if "pRadius" in params:
             self.pRadius = params["pRadius"]
         if "pColor" in params:
