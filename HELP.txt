@@ -1,0 +1,3 @@
+Character Movements : Arrow Keys
+Shoot Projectiles : L Key
+Restart game : R Key

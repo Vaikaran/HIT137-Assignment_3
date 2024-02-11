@@ -2,7 +2,7 @@ import pygame
 import sys
 import random
 
-# Initialize Pygame
+# Initiate game --
 pygame.init()
 
 # Constants
@@ -10,7 +10,7 @@ WIDTH, HEIGHT = 800, 600
 FPS = 60
 
 # Colors
-WHITE = (255, 255, 255)
+WHITE = (157, 230, 240)
 
 # Player Class
 class Player(pygame.sprite.Sprite):
@@ -19,14 +19,15 @@ class Player(pygame.sprite.Sprite):
         # Load the character image
         self.image = pygame.image.load("mario.png").convert_alpha()
         self.rect = self.image.get_rect()
-        self.rect.center = (WIDTH // 2, HEIGHT // 2)
+        self.rect.centerx = WIDTH // 2
+        self.rect.bottom = HEIGHT  
         self.speed = 5
         self.jump_height = -15
         self.gravity = 1
         self.velocity = [0, 0]
         self.max_health = 100  # Maximum health
         self.health = self.max_health
-        self.lives = 2  # Set initial lives to the desired value (e.g., 3)
+        self.lives = 2  # Set initial lives to the desired value
         self.hit = False  # Flag to track if player has been hit
         self.score = 0
 
@@ -37,7 +38,7 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT]:
             self.velocity[0] = self.speed
 
-        if keys[pygame.K_UP] and self.rect.bottom == HEIGHT:
+        if keys[pygame.K_UP] and self.rect.bottom == HEIGHT - 50:
             self.jump()
 
         self.velocity[1] += self.gravity
@@ -49,8 +50,8 @@ class Player(pygame.sprite.Sprite):
             self.rect.left = 0
         if self.rect.right > WIDTH:
             self.rect.right = WIDTH
-        if self.rect.bottom > HEIGHT:
-            self.rect.bottom = HEIGHT
+        if self.rect.bottom > HEIGHT - 50:
+            self.rect.bottom = HEIGHT - 50
             self.velocity[1] = 0
 
     def jump(self):
@@ -102,7 +103,7 @@ class Enemy(pygame.sprite.Sprite):
         # Load the mushroom image
         self.image = pygame.image.load("mushroom.png").convert_alpha()
         self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
+        self.rect.center = (x, y - 50)
         self.speed = 3
 
     def update(self):
@@ -122,7 +123,7 @@ def game_over_screen():
     global screen, all_sprites, projectiles, enemies, health_refills  # Declare global variables
     font = pygame.font.Font(None, 74)
     game_over_text = font.render("Game Over", True, (255, 0, 0))
-    restart_text = font.render("Press R to Restart", True, (255, 255, 255))
+    restart_text = font.render("Press R to Restart", True, (255, 0, 0))
 
     screen.blit(game_over_text, (WIDTH // 2 - 150, HEIGHT // 2 - 50))
     screen.blit(restart_text, (WIDTH // 2 - 200, HEIGHT // 2 + 50))
@@ -164,8 +165,14 @@ def main():
     player = Player()
     all_sprites.add(player)
 
+    # Load the background image
+    background_image = pygame.image.load("background.jpg").convert()
+    background_rect = background_image.get_rect()
+
+    
+
     shooting_cooldown = 0
-    max_cooldown = 30  # Adjust the cooldown value as needed
+    max_cooldown = 30  # Adjust the cooldown value
 
     running = True
     while running:
@@ -233,7 +240,8 @@ def main():
 
             player.health = max(0, player.health)  # Ensure health doesn't go below 0
 
-        screen.fill((0, 0, 0))
+        # Blit the background image onto the screen
+        screen.blit(background_image, background_rect)
 
         # Draw the health bar
         pygame.draw.rect(screen, (255, 0, 0), (10, 10, player.max_health * 2, 20))
