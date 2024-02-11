@@ -391,7 +391,9 @@ class Player(Character):
             pass
         # update level
         level = 1
-        if self.score >= 500:
+        if self.score >= 1000:
+            level = 4
+        elif self.score >= 500:
             level = 3
         elif self.score >= 200:
             level = 2
@@ -510,7 +512,7 @@ class Enemy(Character):
                 if not Res.muted:
                     self.hitSound.play()
             else:
-                enemy.score += 1
+                enemy.score += bullet.power // 5
         pass
 
     def scroll(self, offset):
