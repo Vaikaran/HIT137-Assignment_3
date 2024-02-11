@@ -244,19 +244,29 @@ class Player(Character):
     # invulnerable duration after being damaged
     INVULNERABLE_DURATION = 1
 
+    DEFAULT_SHOOT_CD = 15
+    DEFAULT_JUMP_COUNT = 15
+
     def __init__(self, x, y, width, height, vel, img_frames) -> None:
         super().__init__(x, y, width, height, vel, img_frames)
         self.boundary = (width / 2, game.SCREEN_WIDTH * 3 / 5 - width / 2)
+        self.level = 1
+        self.update_level_power()
         self.isJump = False
-        self.jumpCount = 15
-        self.shootCD = 12
+        self.jumpCount = self.DEFAULT_JUMP_COUNT
         self.pColor = Res.PINK_RED
         self.score = 0
         self.encounter = Encounter()
-
         self.hitSound = pg.mixer.Sound(Res.get("sound", "collision.ogg"))
         self.shootSound = pg.mixer.Sound(Res.get("sound", "projectile1.ogg"))
         self.jumpSound = pg.mixer.Sound(Res.get("sound", "jump.ogg"))
+        self.levelUpSound = pg.mixer.Sound(Res.get("sound", "up.ogg"))
+
+    def update_level_power(self):
+        self.shootCD = self.DEFAULT_SHOOT_CD - self.level * 2
+        self.vel = Res.CHAR_VELOCITY + self.level
+        self.pPower = _characterBase.PROJECTILE_POWER + 5 * (self.level - 1)
+        self.pRadius = _characterBase.PROJECTILE_RADIUS + 2 * (self.level - 1)
 
     def handle_keys(self, instance, keys: ScancodeWrapper):
         # skip actions after die
@@ -360,7 +370,7 @@ class Player(Character):
         super().update()
         # update jump
         if self.isJump:
-            if self.jumpCount >= -15:
+            if self.jumpCount >= -self.DEFAULT_JUMP_COUNT:
                 neg = 1
                 if self.jumpCount < 0:
                     neg = -1
@@ -368,8 +378,22 @@ class Player(Character):
                 self.jumpCount -= 1
             else:
                 self.isJump = False
-                self.jumpCount = 15
+                self.jumpCount = self.DEFAULT_JUMP_COUNT
             pass
+        # update level
+        level = 1
+        if self.score >= 500:
+            level = 3
+        elif self.score >= 200:
+            level = 2
+        else:
+            level = 1
+        # level up
+        if self.level < level:
+            self.level = level
+            self.update_level_power()
+            if not Res.muted:
+                self.levelUpSound.play()
 
 
 class Enemy(Character):

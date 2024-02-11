@@ -148,8 +148,9 @@ class Game:
                 Res.images["char"],
             )
         # update score
-        statusText = self.statusFont.render(f"Score: {self.player.score}", 1, Res.BLACK)
-        self.window.screen.blit(statusText, (40, 14))
+        statusText = f"Score: {self.player.score:<{len(str(self.player.score))+7}}Level:{self.player.level}"
+        statusSurf = self.statusFont.render(statusText, 1, Res.BLACK)
+        self.window.screen.blit(statusSurf, (40, 14))
         # gameover if player dead
         if self.player.isDead:
             self.gameStatus = 2
@@ -181,6 +182,7 @@ class Game:
         score = self.hintFont.render(
             f"Your score: {self.player.score}", 1, Res.LIGHT_GREEN
         )
+
         self.window.screen.blit(
             score,
             (SCREEN_WIDTH / 2 - score.get_width() / 2, 120 + title.get_height() + 40),

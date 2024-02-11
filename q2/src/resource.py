@@ -18,7 +18,7 @@ class Res(object):
     ICON_HEIGHT = 32
     CHAR_WIDTH = 64
     CHAR_HEIGHT = 64
-    CHAR_VELOCITY = 4
+    CHAR_VELOCITY = 3
     CHAR_X = 80
     DATUM_Y = 420
     muted = False
